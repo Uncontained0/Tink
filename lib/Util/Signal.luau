@@ -1,4 +1,5 @@
 local Promise = require(script.Parent.Parent.Parent.Promise)
+local Spawn = require(script.Parent.Spawn)
 
 local SignalConnection = {}
 SignalConnection.__index = SignalConnection
@@ -67,7 +68,7 @@ function Signal:fire(...)
 	local current = self._root
 
 	while current do
-		task.spawn(current._callback, ...)
+		Spawn(current._callback, ...)
 		current = current._next
 	end
 end

@@ -1,35 +1,36 @@
 local Promise = require(script.Parent.Parent.Parent.Promise)
+local Spawn = require(script.Parent.Spawn)
 
 local EmitterConnection = {}
 EmitterConnection.__index = EmitterConnection
 
-function EmitterConnection.new(emitter, event, callback)
+function EmitterConnection.new(Emitter, Event, Callback)
 	local self = setmetatable({}, EmitterConnection)
 	
-	EmitterConnection.constructor(self, emitter, event, callback)
+	EmitterConnection.constructor(self, Emitter, Event, Callback)
 
 	return self
 end
 
-function EmitterConnection:constructor(emitter, event, callback)
-	self._emitter = emitter
-	self._event = event
-	self._callback = callback
+function EmitterConnection:constructor(Emitter, Event, Callback)
+	self._Emitter = Emitter
+	self._Event = Event
+	self._Callback = Callback
 end
 
 function EmitterConnection:Disconnect()
-	if self._emitter._root[self._event] == self then
-		self._emitter._root[self._event] = self._next
+	if self._Emitter._Root[self._Event] == self then
+		self._Emitter._Root[self._Event] = self._Next
 	else
-		local current = self._emitter._root[self._event]
+		local Current = self._Emitter._Root[self._Event]
 
-		while current do
-			if current._next == self then
-				current._next = self._next
+		while Current do
+			if Current._Next == self then
+				Current._Next = self._Next
 				break
 			end
 
-			current = current._next
+			Current = Current._Next
 		end
 	end
 end
@@ -46,38 +47,43 @@ function Emitter.new()
 end
 
 function Emitter:constructor()
-	self._root = {}
+	self._Root = {}
 end
 
-function Emitter:on(event, callback)
-	local connection = EmitterConnection.new(self, event, callback)
+function Emitter:On(Event, Callback)
+	local Connection = EmitterConnection.new(self, Event, Callback)
 
-	if self._root[event] then
-		connection._next = self._root[event]
+	if self._Root[Event] then
+		Connection._Next = self._Root[Event]
 	end
 
-	self._root[event] = connection
+	self._Root[Event] = Connection
 
-	return connection
+	return Connection
 end
 
-function Emitter:wait(event)
+function Emitter:Wait(Event)
 	return Promise.new(function(resolve)
-		local connection
+		local Connection
 
-		connection = self:on(event, function(...)
-			connection:Disconnect()
+		Connection = self:on(Event, function(...)
+			Connection:Disconnect()
 			resolve(...)
 		end)
 	end)
 end
 
-function Emitter:emit(event, ...)
-	local current = self._root[event]
+function Emitter:Emit(Event, ...)
+	local Current = self._Root[Event]
 
-	while current do
-		current._callback(...)
-		current = current._next
+	if Current == nil then
+		warn(("Event %s was emitted, but there were no listeners"):format(Event))
+		return
+	end
+
+	while Current do
+		Spawn(Current._Callback, ...)
+		Current = Current._Next
 	end
 end
 

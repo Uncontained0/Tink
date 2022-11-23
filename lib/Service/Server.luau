@@ -1,12 +1,9 @@
 local Players = game:GetService("Players")
 
-local Util = require(script.Parent.Parent.Util)
 local Network = require(script.Parent.Parent.Network)
 
 local Service = {}
 Service.__index = Service
-
-Service.Event = Util.Symbol("Service.Event")
 
 function Service.new(Name)
 	local self = setmetatable({}, Service)
@@ -28,7 +25,9 @@ function Service:constructor(Name)
 		end
 	})
 
-	Network.Event.RegisterCallback(self._Identifier, function(Player, Id, ...)
+	self.Server = self
+
+	Network.Event.RegisterCallback(self._Name, function(Player, Id, ...)
 		local Name = Network.Serdes.Name(Id)
 
 		if type(self.Client[Name]) == "function" then
@@ -38,7 +37,7 @@ function Service:constructor(Name)
 		end
 	end)
 
-	Network.Event.RegisterConnection(self._Identifier, function(Player, Id, ...)
+	Network.Event.RegisterConnection(self._Name, function(Player, Id, ...)
 		local Name = Network.Serdes.Name(Id)
 
 		if type(self.Client[Name]) == "function" then
@@ -48,7 +47,7 @@ function Service:constructor(Name)
 end
 
 function Service:FireTo(Player, Name, ...)
-	Network.Event.Fire(self._Identifier, Player, Network.Serdes.Identifier(Name):expect(), ...)
+	Network.Event.Fire(self._Name, Player, Network.Serdes.Identifier(Name):expect(), ...)
 end
 
 function Service:FireAll(Name, ...)
@@ -63,6 +62,10 @@ function Service:FireAllExcept(Player, Name, ...)
 			self:FireTo(OtherPlayer, Name, ...)
 		end
 	end
+end
+
+function Service:Invoke(Player, Name, ...)
+	return Network.Event.Invoke(self._Name, Player, Network.Serdes.Identifier(Name):expect(), ...)
 end
 
 return Service

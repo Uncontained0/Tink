@@ -41,21 +41,35 @@ function Service:constructor(Name)
 
 	self._Identifier = IdentifierPromise:expect()
 
-	Network.Event.RegisterConnection(self._Identifier, function(Player, Id, ...)
+	self.Server = {}
+
+	Network.Event.RegisterConnection(self._Name, function(Id, ...)
 		local Name = Network.Serdes.Name(Id)
 
-		self:Emit(Name, Player, ...)
+		self:Emit(Name, ...)
+		
+		if type(self.Server[Name]) == "function" then
+			self.Server[Name](self, ...)
+		end
+	end)
+
+	Network.Event.RegisterCallback(self._Name, function(Id, ...)
+		local Name = Network.Serdes.Name(Id)
+
+		if type(self.Server[Name]) == "function" then
+			self.Server[Name](self, ...)
+		end
 	end)
 
 	ServiceList[Name] = self
 end
 
 function Service:Invoke(Name, ...)
-	return Network.Event.Invoke(self._Identifier, Network.Serdes.Identifier(Name):expect(), ...)
+	return Network.Event.Invoke(self._Identifier, 0, Network.Serdes.Identifier(Name):expect(), ...)
 end
 
 function Service:Fire(Name, ...)
-	Network.Event.Fire(self._Identifier, Network.Serdes.Identifier(Name):expect(), ...)
+	Network.Event.Fire(self._Identifier, 0, Network.Serdes.Identifier(Name):expect(), ...)
 end
 
 return Service

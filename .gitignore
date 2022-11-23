@@ -1,3 +1,6 @@
 Packages
 sourcemap.json
 wally.lock
+node_modules
+package-lock.json
+out

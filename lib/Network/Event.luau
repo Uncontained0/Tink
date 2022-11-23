@@ -27,43 +27,45 @@ function Event.Listen()
 
 	if Util.IsServer then
 		Event.Instance.OnServerEvent:Connect(function(Player, Packets)
-			for _, Packet in Packets do
-				local Args = Packet
-				local Remote = table.remove(Args, 1)
-				local Action = table.remove(Args, 1)
+			for Remote, Packets in Packets do
+				for _, Packet in Packets do
+					local Args = Packet
+					local Action = table.remove(Args, 1)
 
-				for i, v in Args do
-					if v == Event.Nil then
-						Args[i] = nil
+					for i, v in Args do
+						if v == Event.Nil then
+							Args[i] = nil
+						end
 					end
-				end
 
-				table.insert(Event.IncomingQueue, {
-					Remote = Serdes.Name(Remote),
-					Action = Action,
-					Args = Args,
-					Player = Player,
-				})
+					table.insert(Event.IncomingQueue, {
+						Player = Player,
+						Remote = Serdes.Name(Remote),
+						Action = Action,
+						Args = Args,
+					})
+				end
 			end
 		end)
 	else
 		Event.Instance.OnClientEvent:Connect(function(Packets)
-			for _, Packet in Packets do
-				local Args = Packet
-				local Remote = table.remove(Args, 1)
-				local Action = table.remove(Args, 1)
+			for Remote, Packets in Packets do
+				for _, Packet in Packets do
+					local Args = Packet
+					local Action = table.remove(Args, 1)
 
-				for i, v in Args do
-					if v == Event.Nil then
-						Args[i] = nil
+					for i, v in Args do
+						if v == Event.Nil then
+							Args[i] = nil
+						end
 					end
-				end
 
-				table.insert(Event.IncomingQueue, {
-					Remote = Serdes.Name(Remote),
-					Action = Action,
-					Args = Args,
-				})
+					table.insert(Event.IncomingQueue, {
+						Remote = Serdes.Name(Remote),
+						Action = Action,
+						Args = Args,
+					})
+				end
 			end
 		end)
 	end
@@ -123,29 +125,39 @@ function Event._InvokeCallback(Packet)
 
 	if Callback then
 		Util.Spawn(function()
-			Event._Send(Source, table.pack(Packet.Remote, Event.InvokeReturn, pcall(Callback, unpack(Args))))
+			Event._Send(
+				Source,
+				Serdes.Identifier(Packet.Remote):expect(),
+				table.pack(Event.InvokeReturn, pcall(Callback, unpack(Args)))
+			)
 		end)
 	else
 		Util.Spawn(function()
 			Event._Send(
 				Source,
-				table.pack(Packet.Remote, Event.InvokeReturn, false, "No callback registered for " .. Packet.Remote)
+				Serdes.Identifier(Packet.Remote):expect(),
+				table.pack(Event.InvokeReturn, false, "No callback registered for " .. Packet.Remote)
 			)
 		end)
 	end
 end
 
-function Event._Send(To, Packet)
+function Event._Send(To, Remote, Data)
 	if Event.OutboundQueue[To] == nil then
 		Event.OutboundQueue[To] = {}
 	end
 
-	table.insert(Event.OutboundQueue[To], Packet)
+	if Event.OutboundQueue[To][Remote] == nil then
+		Event.OutboundQueue[To][Remote] = {}
+	end
+
+	table.insert(Event.OutboundQueue[To][Remote], Data)
 end
 
 function Event.Invoke(Remote, To, ...)
+	Remote = Serdes.Identifier(Remote):expect()
 	local InvokeId = Serdes.UUID()
-	local Args = table.pack(Remote, Event.Invoke, Serdes.PackUUID(InvokeId), ...)
+	local Args = table.pack(Event.Invoke, Serdes.PackUUID(InvokeId), ...)
 
 	for i, v in Args do
 		if v == nil then
@@ -153,18 +165,23 @@ function Event.Invoke(Remote, To, ...)
 		end
 	end
 
-	Event._Send(To, Args)
+	Event._Send(To, Remote, Args)
 
-	return Promise.new(function(Resolve, Reject)
+	return Promise.new(function(Resolve, Reject, onCancel)
 		Event.ActiveInvokes[InvokeId] = {
 			Resolve = Resolve,
 			Reject = Reject,
 		}
+
+		onCancel(function()
+			Event.ActiveInvokes[InvokeId] = nil
+		end)
 	end)
 end
 
 function Event.Fire(Remote, To, ...)
-	local Args = table.pack(Remote, Event.Event, ...)
+	Remote = Serdes.Identifier(Remote):expect()
+	local Args = table.pack(Event.Event, ...)
 
 	for i, v in Args do
 		if v == nil then
@@ -172,11 +189,11 @@ function Event.Fire(Remote, To, ...)
 		end
 	end
 
-	Event._Send(To, Args)
+	Event._Send(To, Remote, Args)
 end
 
 function Event._ReturnInvoke(Packet)
-	local InvokeId = Serdes.UnpackUUID(Packet.Args[1])
+	local InvokeId = Serdes.UnpackUUID(table.remove(Packet.Args, 1))
 	local Invoke = Event.ActiveInvokes[InvokeId]
 
 	if Invoke then

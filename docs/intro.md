@@ -1,3 +1,7 @@
+---
+sidebar_position: 1
+---
+
 # What is Tink?
 
 Tink is a powerful & performant networking library for
@@ -24,31 +28,31 @@ better. Tink brings a new approach to networking with
 instance bindings that you'll find works far better than the
 singleton model.
 
-## Improvements
+## Features
 
-- **Client singletons no longer exist.** <br>
+- **Client singletons no longer exist.** <br />
 Instead, you create modules that return a table. These can
 then be required by other modules and used as if they were
 singletons.
 
-- **The Lifecycle is dead. Long live the Lifecycle.** <br>
+- **The Lifecycle is dead. Long live the Lifecycle.** <br />
 The lifecycle model is a great idea to work around certain
 constraints that Knit imposed, but these constraints have
 been abolished. However, if you wish, you can still use the
 lifecycle model with just a bit of setup.
 
-- **Services are just modules.** <br>
-Forget `Lib.GetService`, now you can just return the service
+- **Services are just modules.** <br />
+Forget `Knit.GetService`, now you can just return the service
 from it's module, and require the module. You never have to
 worry about a service not being ready for use either.
 
-- **Everything is a RemoteFunction.** <br>
+- **Everything is a RemoteFunction.** <br />
 Think about it, what do you use RemoteEvents for? One way
 RemoteFunctions. Under the hood Tink uses RemoteEvents, but
 from the developer's perspective, they just have a
 RemoteFunction without a return.
 
-- **Networking is now instance based.** <br>
+- **Networking is now instance based.** <br />
 Singletons are great, and thats why Tink has them. However,
 Tink also introduces a new way of networking. Instance
 bindings allow you to communicate directly between instance

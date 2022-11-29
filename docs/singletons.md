@@ -1,3 +1,7 @@
+---
+sidebar_position: 3
+---
+
 # Singletons
 
 In Tink, client singletons are dead. Without a lifecycle,

@@ -1,3 +1,7 @@
+---
+sidebar_position: 4
+---
+
 # Bindings
 
 Bindings are a new networking abstraction introduced by

@@ -4,6 +4,10 @@ local Util = require(script.Parent.Parent.Util)
 local Promise = require(script.Parent.Parent.Parent.Promise)
 local Serdes = require(script.Parent.Serdes)
 
+--[=[
+	@class Event
+	The event class is used to send and receive data over the network.
+]=]
 local Event = {
 	Instance = ReplicatedStorage:WaitForChild("Tink") :: RemoteEvent,
 	Listening = false,
@@ -154,6 +158,18 @@ function Event._Send(To, Remote, Data)
 	table.insert(Event.OutboundQueue[To][Remote], Data)
 end
 
+--[=[
+	@within Event
+	@function Invoke
+	@param Remote string -- The remote to invoke, must not be an identifier string.
+	@param To Player | 0 -- The target to send to, the server is 0.
+	@param ... any -- The arguments to send.
+	@return Promise<any> -- A promise that resolves with the return value of the invoke.
+
+	The returned promise will resolve with the
+	return value of the invoke, or reject with
+	the error message.
+]=]
 function Event.Invoke(Remote, To, ...)
 	Remote = Serdes.Identifier(Remote):expect()
 	local InvokeId = Serdes.UUID()
@@ -176,9 +192,20 @@ function Event.Invoke(Remote, To, ...)
 		onCancel(function()
 			Event.ActiveInvokes[InvokeId] = nil
 		end)
+	end):finally(function()
+		Event.ActiveInvokes[InvokeId] = nil
 	end)
 end
 
+--[=[
+	@within Event
+	@function Fire
+	@param Remote string -- The remote to fire, must not be an identifier string.
+	@param To Player | 0 -- The target to send to, the server is 0.
+	@param ... any -- The arguments to send.
+	
+	Fires a remote event at the target with the given data.
+]=]
 function Event.Fire(Remote, To, ...)
 	Remote = Serdes.Identifier(Remote):expect()
 	local Args = table.pack(Event.Event, ...)
@@ -219,12 +246,30 @@ function Event._FireConnections(Packet)
 	end
 end
 
+--[=[
+	@within Event
+	@function RegisterCallback
+	@param Remote string -- The remote to register a callback for, must not be an identifier string
+	@param Callback (Player, ...any) -> (...any) -- The callback to register
+	
+	This registers a callback for a remote. Once registered, the callback
+	cannot be unregistered.
+]=]
 function Event.RegisterCallback(Remote, Callback)
 	assert(type(Callback) == "function", "Callback must be a function")
 
 	Event.Callbacks[Remote] = Callback
 end
 
+--[=[
+	@within Event
+	@function Connect
+	@param Remote string -- The remote to connect to, must not be an identifier string
+	@param Callback (Player, ...any) -> () -- The callback to register
+	
+	This registers a callback for a remote. Once registered, the callback
+	can be disconnected.
+]=]
 function Event.RegisterConnection(Remote, Callback)
 	assert(type(Callback) == "function", "Callback must be a function")
 

@@ -1,3 +1,7 @@
+---
+sidebar_position: 5
+---
+
 # The Network
 
 The Tink network is a direct abstraction over a remote
@@ -55,15 +59,15 @@ emptied.
 
 The first check is for the Packet's type.
 
-- **Event**<br>
+- **Event**<br />
 This is a simple event fire. When you call `FireTo` this
 is what is sent. The only data sent is what the user
 provides.
-- **Invoke**<br>
+- **Invoke**<br />
 This is a function invoke. When you call `InvokeTo` this
 is what is sent. This packet sends a call identifier to
 identify the return with, as well as the user's data.
-- **InvokeReturn**<br>
+- **InvokeReturn**<br />
 This is a function invoke return. It contains the call
 identifier, if the function ran successfully (any errors)
 and the return data.

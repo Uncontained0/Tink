@@ -1,35 +1,35 @@
-local Promise = require(script.Parent.Parent.Parent.Promise)
+local Promise = require(script.Parent.Promise)
 local Spawn = require(script.Parent.Spawn)
 
 local SignalConnection = {}
 SignalConnection.__index = SignalConnection
 
-function SignalConnection.new(signal, callback)
+function SignalConnection.new(Signal, Callback)
 	local self = setmetatable({}, SignalConnection)
 	
-	SignalConnection.constructor(self, signal, callback)
+	SignalConnection.constructor(self, Signal, Callback)
 
 	return self
 end
 
-function SignalConnection:constructor(signal, callback)
-	self._signal = signal
-	self._callback = callback
+function SignalConnection:constructor(Signal, Callback)
+	self._Signal = Signal
+	self._Callback = Callback
 end
 
-function SignalConnection:Disconnect()
-	if self._signal._root == self then
-		self._signal._root = self._next
+function SignalConnection:DisConnect()
+	if self._Signal._Root == self then
+		self._Signal._Root = self._Next
 	else
-		local current = self._signal._root
+		local Current = self._Signal._Root
 
-		while current do
-			if current._next == self then
-				current._next = self._next
+		while Current do
+			if Current._Next == self then
+				Current._Next = self._Next
 				break
 			end
 
-			current = current._next
+			Current = Current._Next
 		end
 	end
 end
@@ -41,35 +41,35 @@ function Signal.new()
 	return setmetatable({}, Signal)
 end
 
-function Signal:connect(callback)
-	local connection = SignalConnection.new(self, callback)
+function Signal:Connect(Callback)
+	local Connection = SignalConnection.new(self, Callback)
 
-	if self._root then
-		connection._next = self._root
+	if self._Root then
+		Connection._Next = self._Root
 	end
 
-	self._root = connection
+	self._Root = Connection
 
-	return connection
+	return Connection
 end
 
-function Signal:wait()
+function Signal:Wait()
 	return Promise.new(function(resolve)
-		local connection
+		local Connection
 
-		connection = self:connect(function(...)
-			connection:Disconnect()
+		Connection = self:Connect(function(...)
+			Connection:DisConnect()
 			resolve(...)
 		end)
 	end)
 end
 
-function Signal:fire(...)
-	local current = self._root
+function Signal:Fire(...)
+	local Current = self._Root
 
-	while current do
-		Spawn(current._callback, ...)
-		current = current._next
+	while Current do
+		Spawn(Current._Callback, ...)
+		Current = Current._Next
 	end
 end
 

@@ -1,4 +1,4 @@
-local Promise = require(script.Parent.Parent.Parent.Promise)
+local Promise = require(script.Parent.Promise)
 local Spawn = require(script.Parent.Spawn)
 
 local EmitterConnection = {}

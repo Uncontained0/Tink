@@ -113,3 +113,25 @@ function Promise:Finally(FinallyCallback: () -> ())
 	end)
 end
 
+function Promise:Await()
+	if self.Status == "Resolved" then
+		return unpack(self.Value)
+	elseif self.Status == "Rejected" then
+		return error(unpack(self.Value))
+	else
+		local Current = coroutine.running()
+
+		table.insert(self.ResolveCallbacks, Current)
+		table.insert(self.RejectCallbacks, Current)
+
+		coroutine.yield()
+
+		if self.Status == "Resolved" then
+			return unpack(self.Value)
+		else
+			return error(unpack(self.Value))
+		end
+	end
+end
+
+return Promise

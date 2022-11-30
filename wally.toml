@@ -1,9 +1,0 @@
-[package]
-name = "Uncontained0/tink"
-version = "0.1.0"
-registry = "https://github.com/UpliftGames/wally-index"
-realm = "shared"
-include = ["default.project.json", "lib", "LICENSE"]
-
-[dependencies]
-Promise = "evaera/promise@4.0.0"

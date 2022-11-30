@@ -24,28 +24,8 @@ if not Util.IsServer then
 	end)
 end
 
---[=[
-	@class Network
 
-	This class contains all of the networking functionality of Tink.
-	I do not suggest you use this directly, but instead use [Service] or [Binding].
-	If you do use this directly, I highly suggest you read the code that powers
-	it, as well as the documentation.
-]=]
 
---[=[
-	@prop Serdes Serdes
-	@within Network
-	
-	A reference to the [Serdes] class.
-]=]
-
---[=[
-	@prop Event Event
-	@within Network
-
-	A reference to the [Event] class.
-]=]
 
 return {
 	Serdes = Serdes,

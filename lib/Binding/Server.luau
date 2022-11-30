@@ -84,7 +84,7 @@ function Server:constructor(Instance: Instance)
 end
 
 function Server:FireTo(Player, Name, ...)
-	Network.Event.Fire(Id, Player, self.Instance, Network.Serdes.Identifier(Name):expect(), ...)
+	Network.Event.Fire(Id, Player, self.Instance, Network.Serdes.Identifier(Name):await(), ...)
 end
 
 function Server:FireAll(Name, ...)
@@ -102,7 +102,7 @@ function Server:FireAllExcept(Player, Name, ...)
 end
 
 function Server:Invoke(Player, Name, ...)
-	return Network.Event.Invoke(Id, Player, self.Instance, Network.Serdes.Identifier(Name):expect(), ...)
+	return Network.Event.Invoke(Id, Player, self.Instance, Network.Serdes.Identifier(Name):await(), ...)
 end
 
 function Server:_Destroying()

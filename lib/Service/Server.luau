@@ -34,7 +34,7 @@ end
 
 function Service:constructor(Name)
 	self._Name = Name
-	self._Identifier = Network.Serdes.Identifier(("TinkService_%s"):format(Name)):expect()
+	self._Identifier = Network.Serdes.Identifier(("TinkService_%s"):format(Name)):Await()
 
 	--[=[
 		@within ServerService
@@ -106,7 +106,7 @@ end
 	```
 ]=]
 function Service:FireTo(Player, Name, ...)
-	Network.Event.Fire(self._Name, Player, Network.Serdes.Identifier(Name):expect(), ...)
+	Network.Event.Fire(self._Name, Player, Network.Serdes.Identifier(Name):Await(), ...)
 end
 
 --[=[
@@ -164,7 +164,7 @@ end
 	:::
 ]=]
 function Service:Invoke(Player, Name, ...)
-	return Network.Event.Invoke(self._Name, Player, Network.Serdes.Identifier(Name):expect(), ...)
+	return Network.Event.Invoke(self._Name, Player, Network.Serdes.Identifier(Name):Await(), ...)
 end
 
 return Service

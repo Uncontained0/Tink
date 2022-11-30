@@ -136,11 +136,11 @@ end
 	@method Fire
 ]=]
 function Client:Fire(Name, ...)
-	Network.Event.Fire(Id, 0, self.Instance, Network.Serdes.Identifier(Name):expect(), ...)
+	Network.Event.Fire(Id, 0, self.Instance, Network.Serdes.Identifier(Name):await(), ...)
 end
 
 function Client:Invoke(Name, ...)
-	return Network.Event.Invoke(Id, 0, self.Instance, Network.Serdes.Identifier(Name):expect(), ...)
+	return Network.Event.Invoke(Id, 0, self.Instance, Network.Serdes.Identifier(Name):await(), ...)
 end
 
 function Client:_Destroying()

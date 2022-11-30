@@ -20,10 +20,10 @@ local Event = {
 
 	ActiveInvokes = {},
 
-	Nil = Serdes.Identifier("TinkNil"):expect(),
-	Event = Serdes.Identifier("TinkEvent"):expect(),
-	Invoke = Serdes.Identifier("TinkInvoke"):expect(),
-	InvokeReturn = Serdes.Identifier("TinkInvokeReturn"):expect(),
+	Nil = Serdes.Identifier("TinkNil"):Await(),
+	Event = Serdes.Identifier("TinkEvent"):Await(),
+	Invoke = Serdes.Identifier("TinkInvoke"):Await(),
+	InvokeReturn = Serdes.Identifier("TinkInvokeReturn"):Await(),
 }
 
 function Event.Listen()
@@ -131,7 +131,7 @@ function Event._InvokeCallback(Packet)
 		Util.Spawn(function()
 			Event._Send(
 				Source,
-				Serdes.Identifier(Packet.Remote):expect(),
+				Serdes.Identifier(Packet.Remote):Await(),
 				table.pack(Event.InvokeReturn, pcall(Callback, unpack(Args)))
 			)
 		end)
@@ -139,7 +139,7 @@ function Event._InvokeCallback(Packet)
 		Util.Spawn(function()
 			Event._Send(
 				Source,
-				Serdes.Identifier(Packet.Remote):expect(),
+				Serdes.Identifier(Packet.Remote):Await(),
 				table.pack(Event.InvokeReturn, false, "No callback registered for " .. Packet.Remote)
 			)
 		end)
@@ -171,7 +171,7 @@ end
 	the error message.
 ]=]
 function Event.Invoke(Remote, To, ...)
-	Remote = Serdes.Identifier(Remote):expect()
+	Remote = Serdes.Identifier(Remote):Await()
 	local InvokeId = Serdes.UUID()
 	local Args = table.pack(Event.Invoke, Serdes.PackUUID(InvokeId), ...)
 
@@ -207,7 +207,7 @@ end
 	Fires a remote event at the target with the given data.
 ]=]
 function Event.Fire(Remote, To, ...)
-	Remote = Serdes.Identifier(Remote):expect()
+	Remote = Serdes.Identifier(Remote):Await()
 	local Args = table.pack(Event.Event, ...)
 
 	for i, v in Args do

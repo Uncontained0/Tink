@@ -53,7 +53,7 @@ function Service:constructor(Name)
 		end
 	end)
 
-	self._Identifier = IdentifierPromise:expect()
+	self._Identifier = IdentifierPromise:Await()
 
 	--[=[
 		@within ClientService
@@ -74,7 +74,7 @@ function Service:constructor(Name)
 
 		```lua
 		-- Server
-		print(MyService:Invoke(Player1, "Greetings"):expect())
+		print(MyService:Invoke(Player1, "Greetings"):Await())
 
 		-- Client
 		function MyService.Server:Greetings()
@@ -129,7 +129,7 @@ end
 	```
 ]=]
 function Service:Invoke(Name, ...)
-	return Network.Event.Invoke(self._Identifier, 0, Network.Serdes.Identifier(Name):expect(), ...)
+	return Network.Event.Invoke(self._Identifier, 0, Network.Serdes.Identifier(Name):Await(), ...)
 end
 
 --[=[
@@ -145,7 +145,7 @@ end
 	```
 ]=]
 function Service:Fire(Name, ...)
-	Network.Event.Fire(self._Identifier, 0, Network.Serdes.Identifier(Name):expect(), ...)
+	Network.Event.Fire(self._Identifier, 0, Network.Serdes.Identifier(Name):Await(), ...)
 end
 
 --[=[

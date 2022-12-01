@@ -27,6 +27,30 @@ function Promise.Reject(...)
 	return self
 end
 
+function Promise.Retry(
+	Callback: (Resolve: (...any) -> (), Reject: (Error: string) -> ()) -> (),
+	MaxRetries: number,
+	Delay: number?
+)
+	return Promise.new(function(Resolve, Reject)
+		local Retries = 0
+
+		while true do
+			pcall(Callback, Resolve, function(Error)
+				Retries += 1
+
+				if Retries >= MaxRetries then
+					Reject(Error)
+				end
+			end)
+
+			if Delay then
+				task.wait(Delay)
+			end
+		end
+	end)
+end
+
 function Promise:constructor(Callback: (Resolve: (...any) -> (), Reject: (Error: string) -> ()) -> ())
 	self.Status = "Pending"
 	self.ResolveCallbacks = {}
@@ -90,7 +114,7 @@ function Promise:Then(ResolveCallback: (...any) -> ()?, RejectCallback: (Error: 
 
 			table.insert(self.RejectCallbacks, function(Error)
 				if RejectCallback then
-					Reject(RejectCallback(Error))
+					Resolve(RejectCallback(Error))
 				else
 					Reject(Error)
 				end

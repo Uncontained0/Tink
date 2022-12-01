@@ -18,6 +18,7 @@ type Entry = {
 
 local MAX_RETRIES = 5
 local SESSION_TIMEOUT = 600
+local AUTOSAVE_RATE = 60
 
 local Store = (
 	if RunService:IsStudio()
@@ -99,6 +100,8 @@ function DataStore:Reconcile()
 end
 
 function DataStore:Save(ClearSession: boolean?)
+	assert(not self.Released, "Cannot save a released DataStore.")
+
 	if self.DoSave then
 		if self.Saver then
 			return self.Saver
@@ -154,6 +157,54 @@ function DataStore:Save(ClearSession: boolean?)
 	end
 
 	return Promise.Resolve()
+end
+
+function DataStore:StartAutoSave()
+	self.AutoSaveThread = Spawn(function()
+		while self.DoSave do
+			task.wait(AUTOSAVE_RATE)
+			self.AutoSaveStart:Fire()
+			self:Save():Then(function()
+				self.AutoSaveEnd:Fire()
+			end)
+		end
+	end)
+end
+
+function DataStore:StopAutoSave()
+	if self.AutoSaveThread then
+		self.AutoSaveThread:Cancel()
+		self.AutoSaveThread = nil
+	end
+end
+
+function DataStore:Release()
+	if self.Saver then
+		return Promise.new(function(Resolve)
+			self.Saver:Await()
+			self:Save(true):Then(function()
+				Resolve()
+			end)
+		end)
+	end
+
+	return self:Save(true):Then(function()
+		self.Released = true
+	end)
+end
+
+function DataStore:AddUserId(UserId: number)
+	if not table.find(self.UserIds, UserId) then
+		table.insert(self.UserIds, UserId)
+	end
+end
+
+function DataStore:RemoveUserId(UserId: number)
+	local Index = table.find(self.UserIds, UserId)
+
+	if Index then
+		table.remove(self.UserIds, Index)
+	end
 end
 
 return DataStore

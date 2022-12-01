@@ -39,8 +39,9 @@ function DataStore:constructor(Key, Template)
 	self.Template = Template
 
 	self.Saved = Signal.new()
-	self.
-self:Load()
+	self.AutoSaveStart = Signal.new()
+	self.AutoSaveEnd = Signal.new()
+	self:Load()
 end
 
 function DataStore:Load()
@@ -160,8 +161,10 @@ function DataStore:Save(ClearSession: boolean?)
 end
 
 function DataStore:StartAutoSave()
+	self.AutoSave = true
+
 	self.AutoSaveThread = Spawn(function()
-		while self.DoSave do
+		while self.AutoSave do
 			task.wait(AUTOSAVE_RATE)
 			self.AutoSaveStart:Fire()
 			self:Save():Then(function()
@@ -172,13 +175,12 @@ function DataStore:StartAutoSave()
 end
 
 function DataStore:StopAutoSave()
-	if self.AutoSaveThread then
-		self.AutoSaveThread:Cancel()
-		self.AutoSaveThread = nil
-	end
+	self.AutoSave = false
 end
 
 function DataStore:Release()
+	self:StopAutoSave()
+
 	if self.Saver then
 		return Promise.new(function(Resolve)
 			self.Saver:Await()

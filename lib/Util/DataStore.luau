@@ -18,7 +18,7 @@ type Entry = {
 
 local MAX_RETRIES = 5
 local SESSION_TIMEOUT = 600
-local AUTOSAVE_RATE = 60
+local AUTOSAVE_RATE = 300
 
 local Store = (
 	if RunService:IsStudio()

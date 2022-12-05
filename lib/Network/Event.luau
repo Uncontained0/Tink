@@ -1,25 +1,34 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Util = require(script.Parent.Parent.Util)
-local Promise = Util.Promise
 local Serdes = require(script.Parent.Serdes)
+local Promise = Util.Promise
 
 local Event = {
 	Instance = ReplicatedStorage:WaitForChild("Tink") :: RemoteEvent,
 	Listening = false,
 
-	IncomingQueue = {},
-	OutboundQueue = {},
+	IncomingQueue = {} :: { {
+		Remote: string,
+		Action: string,
+		Args: { any },
+		Player: Player?,
+	} },
+	OutboundQueue = {} :: {
+		[Player]: {
+			[string]: { { any } },
+		},
+	},
 
 	Callbacks = {},
 	Connections = {},
 
 	ActiveInvokes = {},
 
-	Nil = Serdes.Identifier("TinkNil"):Await(),
-	Event = Serdes.Identifier("TinkEvent"):Await(),
-	Invoke = Serdes.Identifier("TinkInvoke"):Await(),
-	InvokeReturn = Serdes.Identifier("TinkInvokeReturn"):Await(),
+	NilId = Serdes.Identifier("TinkNil"):Await(),
+	EventId = Serdes.Identifier("TinkEvent"):Await(),
+	InvokeId = Serdes.Identifier("TinkInvoke"):Await(),
+	InvokeReturnId = Serdes.Identifier("TinkInvokeReturn"):Await(),
 }
 
 function Event.Listen()
@@ -30,10 +39,14 @@ function Event.Listen()
 			for Remote, Packets in Packets do
 				for _, Packet in Packets do
 					local Args = Packet
-					local Action = table.remove(Args, 1)
+					local Action = table.remove(Args, 1) :: string
+
+					if type(Action) ~= "string" then
+						continue
+					end
 
 					for i, v in Args do
-						if v == Event.Nil then
+						if v == Event.NilId then
 							Args[i] = nil
 						end
 					end
@@ -52,10 +65,14 @@ function Event.Listen()
 			for Remote, Packets in Packets do
 				for _, Packet in Packets do
 					local Args = Packet
-					local Action = table.remove(Args, 1)
+					local Action = table.remove(Args, 1) :: string
+
+					if type(Action) ~= "string" then
+						continue
+					end
 
 					for i, v in Args do
-						if v == Event.Nil then
+						if v == Event.NilId then
 							Args[i] = nil
 						end
 					end
@@ -95,25 +112,25 @@ function Event.ProcessQueue()
 end
 
 function Event.ProcessIncomingPacket(Packet)
-	if Packet.Action == Event.Invoke then
+	if Packet.Action == Event.InvokeId then
 		Event._InvokeCallback(Packet)
-	elseif Packet.Action == Event.Event then
+	elseif Packet.Action == Event.EventId then
 		Event._FireConnections(Packet)
-	elseif Packet.Action == Event.InvokeReturn then
+	elseif Packet.Action == Event.InvokeReturnId then
 		Event._ReturnInvoke(Packet)
 	end
 end
 
-function Event.ProcessOutboundPackets(Player, Packets)
+function Event.ProcessOutboundPackets(Player: Player | number, Packets)
 	if Util.IsServer then
-		Event.Instance:FireClient(Player, Packets)
+		Event.Instance:FireClient(Player :: Player, Packets)
 	elseif Player == 0 then
 		Event.Instance:FireServer(Packets)
 	end
 end
 
 function Event._InvokeCallback(Packet)
-	local Source = Packet.Player or 0
+	local Source = Packet.Player or 0 :: Player | number
 	local Callback = Event.Callbacks[Packet.Remote]
 
 	local Args
@@ -154,7 +171,7 @@ function Event._Send(To, Remote, Data)
 	table.insert(Event.OutboundQueue[To][Remote], Data)
 end
 
-function Event.Invoke(Remote, To, ...)
+function Event.Invoke(Remote, To, ...): Util.Promise
 	Remote = Serdes.Identifier(Remote):Await()
 	local InvokeId = Serdes.UUID()
 	local Args = table.pack(Event.Invoke, Serdes.PackUUID(InvokeId), ...)
@@ -167,16 +184,12 @@ function Event.Invoke(Remote, To, ...)
 
 	Event._Send(To, Remote, Args)
 
-	return Promise.new(function(Resolve, Reject, onCancel)
+	return Promise.new(function(Resolve, Reject)
 		Event.ActiveInvokes[InvokeId] = {
 			Resolve = Resolve,
 			Reject = Reject,
 		}
-
-		onCancel(function()
-			Event.ActiveInvokes[InvokeId] = nil
-		end)
-	end):finally(function()
+	end):Finally(function()
 		Event.ActiveInvokes[InvokeId] = nil
 	end)
 end
@@ -195,15 +208,24 @@ function Event.Fire(Remote, To, ...)
 end
 
 function Event._ReturnInvoke(Packet)
-	local InvokeId = Serdes.UnpackUUID(table.remove(Packet.Args, 1))
+	local InvokeId = table.remove(Packet.Args, 1) :: string
+	if type(InvokeId) == "string" then
+		InvokeId = Serdes.UnpackUUID(InvokeId)
+	else
+		return
+	end
+
 	local Invoke = Event.ActiveInvokes[InvokeId]
 
 	if Invoke then
 		if table.remove(Packet.Args, 1) then
 			Invoke.Resolve(unpack(Packet.Args))
 			Event.ActiveInvokes[InvokeId] = nil
+		elseif type(Packet.Args[1]) == "string" then
+			Invoke.Reject(table.remove(Packet.Args, 1) :: string)
+			Event.ActiveInvokes[InvokeId] = nil
 		else
-			Invoke.Reject(table.remove(Packet.Args, 1))
+			Invoke.Reject("Unknown error")
 			Event.ActiveInvokes[InvokeId] = nil
 		end
 	else

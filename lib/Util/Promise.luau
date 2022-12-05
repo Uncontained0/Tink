@@ -1,10 +1,29 @@
+local Spawn = require(script.Parent.Spawn)
+
 local Promise = {}
 Promise.__index = Promise
 
-function Promise.new(Callback)
+function Promise.new(Callback: (Resolve: (...any) -> (), Reject: (Error: string) -> ()) -> ())
 	local self = setmetatable({}, Promise)
 
-	Promise.constructor(self, Callback)
+	self.Status = "Pending"
+	self.ResolveCallbacks = {} :: { (...any) -> () | thread }
+	self.RejectCallbacks = {} :: { (Error: string) -> () | thread }
+
+	self.Value = nil :: { any }?
+
+	self.Thread = nil :: thread?
+	self.Thread = coroutine.create(function()
+		xpcall(Callback, function(Error)
+			self:_Reject(Error)
+		end, function(...)
+			self:_Resolve(...)
+		end, function(Error: string)
+			self:_Reject(Error)
+		end)
+	end)
+
+	task.spawn(self.Thread :: thread)
 
 	return self
 end
@@ -13,7 +32,10 @@ function Promise.Resolve(...)
 	local self = setmetatable({}, Promise)
 
 	self.Status = "Resolved"
-	self.Value = { ... }
+	self.ResolveCallbacks = {} :: { (...any) -> () | thread }
+	self.RejectCallbacks = {} :: { (Error: string) -> () | thread }
+	self.Value = { ... } :: { any }?
+	self.Thread = nil :: thread?
 
 	return self
 end
@@ -22,7 +44,10 @@ function Promise.Reject(...)
 	local self = setmetatable({}, Promise)
 
 	self.Status = "Rejected"
-	self.Value = { ... }
+	self.ResolveCallbacks = {} :: { (...any) -> () | thread }
+	self.RejectCallbacks = {} :: { (Error: string) -> () | thread }
+	self.Value = { ... } :: { any }?
+	self.Thread = nil :: thread?
 
 	return self
 end
@@ -51,57 +76,45 @@ function Promise.Retry(
 	end)
 end
 
-function Promise:constructor(Callback: (Resolve: (...any) -> (), Reject: (Error: string) -> ()) -> ())
-	self.Status = "Pending"
-	self.ResolveCallbacks = {}
-	self.RejectCallbacks = {}
-
-	self.Thread = coroutine.create(function()
-		xpcall(Callback, function(Error)
-			self:_Reject(Error)
-		end, function(...)
-			self:_Resolve(...)
-		end, function(Error)
-			self:_Reject(Error)
-		end)
-	end)
-
-	task.spawn(self.Thread)
-
-	return self
-end
-
-function Promise:_Resolve(...)
+function Promise._Resolve(self: Promise, ...)
 	assert(self.Status == "Pending", "Cannot resolve a promise that is not pending.")
 
 	self.Status = "Resolved"
 	self.Value = { ... }
 
 	for _, Callback in self.ResolveCallbacks do
-		Callback(...)
+		Spawn(Callback, ...)
 	end
 
-	task.cancel(self.Thread)
+	if self.Thread then
+		task.cancel(self.Thread)
+	end
 end
 
-function Promise:_Reject(Error)
+function Promise._Reject(self: Promise, Error: string)
 	assert(self.Status == "Pending", "Cannot reject a promise that is not pending.")
 
 	self.Status = "Rejected"
 	self.Value = { Error }
 
 	for _, Callback in self.RejectCallbacks do
-		Callback(Error)
+		Spawn(Callback, Error)
 	end
 
-	task.cancel(self.Thread)
+	if self.Thread then
+		task.cancel(self.Thread)
+	end
 end
 
-function Promise:Then(ResolveCallback: (...any) -> ()?, RejectCallback: (Error: any) -> ()?)
+function Promise.Then(self: Promise, ResolveCallback: (...any) -> ()?, RejectCallback: (Error: string) -> ()?)
 	if self.Status == "Resolved" then
-		return Promise.Resolve(if ResolveCallback then ResolveCallback(unpack(self.Value)) else unpack(self.Value))
+		return Promise.Resolve(
+			if ResolveCallback then ResolveCallback(unpack(self.Value :: { any })) else unpack(self.Value :: { any })
+		)
 	elseif self.Status == "Rejected" then
-		return Promise.Reject(if RejectCallback then RejectCallback(unpack(self.Value)) else unpack(self.Value))
+		return Promise.Reject(
+			if RejectCallback then RejectCallback(unpack(self.Value :: { any })) else unpack(self.Value :: { any })
+		)
 	else
 		return Promise.new(function(Resolve, Reject)
 			table.insert(self.ResolveCallbacks, function(...)
@@ -123,11 +136,11 @@ function Promise:Then(ResolveCallback: (...any) -> ()?, RejectCallback: (Error: 
 	end
 end
 
-function Promise:Catch(RejectCallback: (Error: any) -> ())
+function Promise.Catch(self: Promise, RejectCallback: (Error: string) -> ())
 	return self:Then(nil, RejectCallback)
 end
 
-function Promise:Finally(FinallyCallback: () -> ())
+function Promise.Finally(self: Promise, FinallyCallback: () -> ())
 	return self:Then(function(...)
 		FinallyCallback()
 		return ...
@@ -137,11 +150,11 @@ function Promise:Finally(FinallyCallback: () -> ())
 	end)
 end
 
-function Promise:Await()
+function Promise.Await(self: Promise): (...any)
 	if self.Status == "Resolved" then
-		return unpack(self.Value)
+		return unpack(self.Value :: { any })
 	elseif self.Status == "Rejected" then
-		return error(unpack(self.Value))
+		return error(unpack(self.Value :: { any }))
 	else
 		local Current = coroutine.running()
 
@@ -151,11 +164,13 @@ function Promise:Await()
 		coroutine.yield()
 
 		if self.Status == "Resolved" then
-			return unpack(self.Value)
+			return unpack(self.Value :: { any })
 		else
-			return error(unpack(self.Value))
+			return error(unpack(self.Value :: { any }))
 		end
 	end
 end
+
+export type Promise = typeof(Promise.new(table.unpack(...)))
 
 return Promise

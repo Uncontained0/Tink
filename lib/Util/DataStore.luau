@@ -3,210 +3,164 @@ local RunService = game:GetService("RunService")
 
 local Promise = require(script.Parent.Promise)
 local Signal = require(script.Parent.Signal)
-local Spawn = require(script.Parent.Spawn)
+
+local Store: GlobalDataStore
+if RunService:IsStudio() then
+	Store = DataStoreService:GetDataStore("TestingDataStore")
+else
+	Store = DataStoreService:GetDataStore("ProductionDataStore")
+end
+
+local MAX_RETRIES = 5
+local SAVE_DELAY = 300
+local LOCK_TIMEOUT = 900
 
 local DataStore = {}
 DataStore.__index = DataStore
 
-type Entry = {
-	Data: { [string]: any },
-	Session: {
-		Server: string,
-		LastUpdated: number,
-	} | nil,
-}
-
-local MAX_RETRIES = 5
-local SESSION_TIMEOUT = 600
-local AUTOSAVE_RATE = 300
-
-local Store = (
-	if RunService:IsStudio()
-		then DataStoreService:GetDataStore("Testing")
-		else DataStoreService:GetDataStore("Production")
-) :: DataStore
-
-function DataStore.new(Key, Template)
+function DataStore.new(Key: string, Template: { [string]: any })
 	local self = setmetatable({}, DataStore)
 
-	DataStore.constructor(self, Key)
+	self.Key = Key
+	self.Template = Template
+
+	self.AutosaveStart = Signal.new() :: Signal.Signal
+	self.AutosaveEnd = Signal.new() :: Signal.Signal
+
+	self.Data = nil :: { [string]: any }?
+	self.UserIds = {} :: { number }
+
+	self.Loaded = false
+	self.DoSave = false
+
+	self.Loading = nil :: Promise.Promise?
+	self.Saving = nil :: Promise.Promise?
+
+	self.AutosaveThread = nil :: thread?
+	
+	self:Load()
 
 	return self
 end
 
-function DataStore:constructor(Key, Template)
-	self.Key = Key
-	self.Template = Template
-
-	self.Saved = Signal.new()
-	self.AutoSaveStart = Signal.new()
-	self.AutoSaveEnd = Signal.new()
-	self:Load()
-end
-
 function DataStore:Load()
-	self.Loader = Promise.Retry(function(Resolve)
-		local EntryLocal, UserIds
+	if self.Loading ~= nil or self.Data ~= nil then
+		return
+	end
 
-		Store:UpdateAsync(self.Key, function(Entry: Entry, Metadata: DataStoreKeyInfo)
-			if Entry == nil then
-				Entry = {
+	self.Loading = Promise.Retry(function(Resolve)
+		local OutData, UserIds
+
+		Store:UpdateAsync(self.Key, function(Data, KeyInfo: DataStoreKeyInfo)
+			if Data == nil then
+				Data = {
 					Data = {},
 					Session = nil,
 				}
 			end
 
-			Entry.Session = {
-				Server = game.JobId,
-				LastUpdated = os.time(),
+			Data.Session = {
+				Owner = game.JobId,
+				LastLocked = os.time(),
 			}
 
-			EntryLocal = Entry
-			UserIds = Metadata:GetUserIds()
+			OutData = Data.Data
+			UserIds = KeyInfo:GetUserIds()
 
-			return Entry, Metadata:GetUserIds()
+			return Data, KeyInfo:GetUserIds()
 		end)
 
-		Resolve(EntryLocal, UserIds)
-	end, MAX_RETRIES)
-		:Then(function(Entry: Entry, UserIds)
-			self.DoSave = true
-			self.Data = Entry.Data
-			self.UserIds = UserIds
+		Resolve(OutData, UserIds)
+	end, MAX_RETRIES):Then(function(Data: { [string]: any }, UserIds: { number })
+		self.Data = Data
+		self.UserIds = UserIds
 
-			self:Reconcile()
-			self:StartAutoSave()
-		end, function()
-			self.DoSave = false
-			self.Data = table.clone(self.Template)
-			self.UserIds = {}
-		end)
-		:Finally(function()
-			self.Loader = nil
-		end)
+		self.DoSave = true
+	end, function()
+		self.Data = table.clone(self.Template)
+		self.UserIds = {}
+	end):Finally(function()
+		self.Loading = nil
+		self.Loaded = true
+	end)
 end
 
-function DataStore:WaitForLoad()
-	if self.Loader then
-		self.Loader:Await()
+function DataStore:Save(RemoveLock: boolean?)
+	if self.Saving ~= nil or not self.DoSave then
+		return self.Saving or Promise.Resolve()
 	end
-end
 
-function DataStore:Reconcile()
-	for Key, Value in pairs(self.Template) do
-		if self.Data[Key] == nil then
-			self.Data[Key] = Value
-		end
-	end
-end
+	self.Saving = Promise.Retry(function(Resolve)
+		Store:UpdateAsync(self.Key, function(Data)
+			if Data == nil then
+				Data = {
+					Data = {},
+					Session = nil,
+				}
+			end
 
-function DataStore:Save(ClearSession: boolean?)
-	assert(not self.Released, "Cannot save a released DataStore.")
-
-	if self.DoSave then
-		if self.Saver then
-			return self.Saver
-		end
-
-		self.Saver = Promise.Retry(function(Resolve)
-			Store:UpdateAsync(self.Key, function(Entry: Entry, Metadata: DataStoreKeyInfo)
-				if Entry == nil then
-					Entry = {
-						Data = {},
-						Session = nil,
+			if Data.Session == nil then
+				if not RemoveLock then
+					Data.Session = {
+						Owner = game.JobId,
+						LastLocked = os.time(),
 					}
 				end
 
-				if Entry.Session == nil then
-					Entry.Session = {
-						Server = game.JobId,
-						LastUpdated = os.time(),
-					}
-				end
+				Data.Data = self.Data
+			elseif Data.Session.Owner == game.JobId then
+				Data.Data = self.Data
 
-				if Entry.Session and Entry.Session.Server == game.JobId then
-					Entry.Data = self.Data
-					Entry.Session.LastUpdated = os.time()
-
-					if ClearSession then
-						Entry.Session = nil
-					end
-
-					return Entry, self.UserIds
-				elseif Entry.Session and os.time() - Entry.Session.LastUpdated > SESSION_TIMEOUT then
-					Entry.Session = {
-						Server = game.JobId,
-						LastUpdated = os.time(),
-					}
-
-					Entry.Data = self.Data
-
-					if ClearSession then
-						Entry.Session = nil
-					end
-
-					return Entry, self.UserIds
+				if RemoveLock then
+					Data.Session = nil
 				else
-					return Entry, Metadata:GetUserIds()
+					Data.Session.LastLocked = os.time()
 				end
-			end)
-		end, MAX_RETRIES):Finally(function()
-			self.Saver = nil
+			elseif os.time() - Data.Session.LastLocked > LOCK_TIMEOUT then
+				if not RemoveLock then
+					Data.Session = {
+						Owner = game.JobId,
+						LastLocked = os.time(),
+					}
+				end
+
+				Data.Data = self.Data
+			end
+
+			return Data, self.UserIds
 		end)
+	end, MAX_RETRIES):Finally(function()
+		self.Saving = nil :: any
+	end)
 
-		return self.Saver
-	end
-
-	return Promise.Resolve()
+	return self.Saving
 end
 
-function DataStore:StartAutoSave()
-	self.AutoSave = true
+function DataStore:StartAutosave()
+	self.AutosaveThread = task.spawn(function()
+		while self.DoSave do
+			task.wait(SAVE_DELAY)
+			self.AutosaveStart:Fire()
 
-	self.AutoSaveThread = Spawn(function()
-		while self.AutoSave do
-			task.wait(AUTOSAVE_RATE)
-			self.AutoSaveStart:Fire()
-			self:Save():Then(function()
-				self.AutoSaveEnd:Fire()
+			self:Save():Finally(function()
+				self.AutosaveEnd:Fire()
 			end)
 		end
 	end)
 end
 
-function DataStore:StopAutoSave()
-	self.AutoSave = false
+function DataStore:StopAutosave()
+	self.AutosaveThread = self.AutosaveThread :: thread?
+
+	if self.AutosaveThread ~= nil then
+		task.cancel(self.AutosaveThread)
+		self.AutosaveThread = nil
+	end
 end
 
 function DataStore:Release()
-	self:StopAutoSave()
-
-	if self.Saver then
-		return Promise.new(function(Resolve)
-			self.Saver:Await()
-			self:Save(true):Then(function()
-				Resolve()
-			end)
-		end)
-	end
-
-	return self:Save(true):Then(function()
-		self.Released = true
-	end)
-end
-
-function DataStore:AddUserId(UserId: number)
-	if not table.find(self.UserIds, UserId) then
-		table.insert(self.UserIds, UserId)
-	end
-end
-
-function DataStore:RemoveUserId(UserId: number)
-	local Index = table.find(self.UserIds, UserId)
-
-	if Index then
-		table.remove(self.UserIds, Index)
-	end
+	self:StopAutosave()
+	self:Save(true)
 end
 
 return DataStore

@@ -1,12 +1,16 @@
-return function(className, props, children)
-	local instance = Instance.new(className)
+return function(className: string, props: { [string]: any }?, children: { Instance }?): Instance
+	local instance = Instance.new(className :: any)
 
-	for i, v in props or {} do
-		instance[i] = v
+	if props then
+		for i, v in props do
+			(instance :: any)[i] = v
+		end
 	end
 
-	for i, v in children or {} do
-		v.Parent = instance
+	if children then
+		for _, child in children do
+			child.Parent = instance
+		end
 	end
 
 	return instance

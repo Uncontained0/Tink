@@ -29,7 +29,7 @@ function Serdes.RegisterIdentifier(Name: string)
 	return Id
 end
 
-function Serdes.GetIdentifier(Name: string)
+function Serdes.GetIdentifier(Name: string): Util.Promise
 	if Serdes.NameToId[Name] then
 		return Promise.Resolve(Serdes.NameToId[Name])
 	elseif Serdes.WaitingForId[Name] then
@@ -53,7 +53,7 @@ function Serdes.GetIdentifier(Name: string)
 	end
 end
 
-function Serdes.Identifier(Name: string)
+function Serdes.Identifier(Name: string): Util.Promise
 	if Util.IsServer then
 		if not Serdes.NameToId[Name] then
 			Serdes.RegisterIdentifier(Name)
@@ -85,11 +85,11 @@ function Serdes.Name(Id: string)
 	return Serdes.IdToName[Id]
 end
 
-function Serdes.UUID()
+function Serdes.UUID(): string
 	return HttpService:GenerateGUID(false):gsub("-", "")
 end
 
-function Serdes.PackUUID(UUID)
+function Serdes.PackUUID(UUID): string
 	return string.gsub(UUID, ".", function(c)
 		return string.format("%02X", string.byte(c))
 	end)

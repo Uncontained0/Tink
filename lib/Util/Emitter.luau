@@ -1,24 +1,25 @@
 local Promise = require(script.Parent.Promise)
 local Spawn = require(script.Parent.Spawn)
 
-local EmitterConnection = {}
-EmitterConnection.__index = EmitterConnection
+local Connection = {}
+Connection.__index = Connection
 
-function EmitterConnection.new(Emitter, Event, Callback)
-	local self = setmetatable({}, EmitterConnection)
-	
-	EmitterConnection.constructor(self, Emitter, Event, Callback)
+function Connection.new(
+	Emitter: { _Root: { [string]: Connection } },
+	Event: string,
+	Callback: (...any) -> ()
+): Connection
+	local self = setmetatable({}, Connection)
+
+	self._Emitter = Emitter
+	self._Event = Event
+	self._Callback = Callback
+	self._Next = nil :: Connection?
 
 	return self
 end
 
-function EmitterConnection:constructor(Emitter, Event, Callback)
-	self._Emitter = Emitter
-	self._Event = Event
-	self._Callback = Callback
-end
-
-function EmitterConnection:Disconnect()
+function Connection:Disconnect()
 	if self._Emitter._Root[self._Event] == self then
 		self._Emitter._Root[self._Event] = self._Next
 	else
@@ -35,50 +36,35 @@ function EmitterConnection:Disconnect()
 	end
 end
 
+export type Connection = typeof(Connection.new({ _Root = {} }, "", function() end))
+
 local Emitter = {}
 Emitter.__index = Emitter
 
 function Emitter.new()
 	local self = setmetatable({}, Emitter)
 
-	Emitter.constructor(self)
+	self._Root = {} :: { [string]: Connection }
 
 	return self
 end
 
-function Emitter:constructor()
-	self._Root = {}
-end
+function Emitter:Connect(Event: string, Callback: (...any) -> ()): Connection
+	local Connection = Connection.new(self, Event, Callback)
 
-function Emitter:On(Event, Callback)
-	local Connection = EmitterConnection.new(self, Event, Callback)
-
-	if self._Root[Event] then
-		Connection._Next = self._Root[Event]
-	end
-
+	Connection._Next = self._Root[Event]
 	self._Root[Event] = Connection
 
 	return Connection
 end
 
-function Emitter:Wait(Event)
-	return Promise.new(function(resolve)
-		local Connection
+Emitter.On = Emitter.Connect
 
-		Connection = self:on(Event, function(...)
-			Connection:Disconnect()
-			resolve(...)
-		end)
-	end)
-end
-
-function Emitter:Emit(Event, ...)
+function Emitter:Fire(Event: string, ...)
 	local Current = self._Root[Event]
 
 	if Current == nil then
-		warn(("Event %s was emitted, but there were no listeners"):format(Event))
-		return
+		warn("Attempted to fire event " .. Event .. " on an emitter with no connections.")
 	end
 
 	while Current do
@@ -86,5 +72,14 @@ function Emitter:Emit(Event, ...)
 		Current = Current._Next
 	end
 end
+
+function Emitter:Wait(Event: string): Promise.Promise
+	return Promise.new(function(Resolve)
+		local Connection = self:Connect(Event, Resolve)
+		return Connection.Disconnect
+	end)
+end
+
+export type Emitter = typeof(Emitter.new())
 
 return Emitter

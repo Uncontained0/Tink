@@ -1,23 +1,20 @@
 local Promise = require(script.Parent.Promise)
 local Spawn = require(script.Parent.Spawn)
 
-local SignalConnection = {}
-SignalConnection.__index = SignalConnection
+local Connection = {}
+Connection.__index = Connection
 
-function SignalConnection.new(Signal, Callback)
-	local self = setmetatable({}, SignalConnection)
-	
-	SignalConnection.constructor(self, Signal, Callback)
+function Connection.new(Signal: { _Root: Connection? }, Callback: (...any) -> ()): Connection
+	local self = setmetatable({}, Connection)
+
+	self._Signal = Signal
+	self._Callback = Callback
+	self._Next = nil :: Connection?
 
 	return self
 end
 
-function SignalConnection:constructor(Signal, Callback)
-	self._Signal = Signal
-	self._Callback = Callback
-end
-
-function SignalConnection:DisConnect()
+function Connection:Disconnect()
 	if self._Signal._Root == self then
 		self._Signal._Root = self._Next
 	else
@@ -34,34 +31,26 @@ function SignalConnection:DisConnect()
 	end
 end
 
+export type Connection = typeof(Connection.new({ _Root = nil :: Connection? }, function() end))
+
 local Signal = {}
 Signal.__index = Signal
 
 function Signal.new()
-	return setmetatable({}, Signal)
+	local self = setmetatable({}, Signal)
+
+	self._Root = nil :: Connection?
+
+	return self
 end
 
-function Signal:Connect(Callback)
-	local Connection = SignalConnection.new(self, Callback)
+function Signal:Connect(Callback): Connection
+	local Connection = Connection.new(self, Callback)
 
-	if self._Root then
-		Connection._Next = self._Root
-	end
-
+	Connection._Next = self._Root
 	self._Root = Connection
 
 	return Connection
-end
-
-function Signal:Wait()
-	return Promise.new(function(resolve)
-		local Connection
-
-		Connection = self:Connect(function(...)
-			Connection:DisConnect()
-			resolve(...)
-		end)
-	end)
 end
 
 function Signal:Fire(...)
@@ -69,8 +58,21 @@ function Signal:Fire(...)
 
 	while Current do
 		Spawn(Current._Callback, ...)
+
 		Current = Current._Next
 	end
 end
+
+function Signal:Wait(): Promise.Promise
+	return Promise.new(function(Resolve)
+		local Connection
+		Connection = self:Connect(function(...)
+			Connection:Disconnect()
+			Resolve(...)
+		end)
+	end)
+end
+
+export type Signal = typeof(Signal.new())
 
 return Signal

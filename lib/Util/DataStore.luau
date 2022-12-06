@@ -4,163 +4,143 @@ local RunService = game:GetService("RunService")
 local Promise = require(script.Parent.Promise)
 local Signal = require(script.Parent.Signal)
 
-local Store: GlobalDataStore
-if RunService:IsStudio() then
-	Store = DataStoreService:GetDataStore("TestingDataStore")
-else
-	Store = DataStoreService:GetDataStore("ProductionDataStore")
-end
-
 local MAX_RETRIES = 5
 local SAVE_DELAY = 300
 local LOCK_TIMEOUT = 900
 
-local DataStore = {}
-DataStore.__index = DataStore
+local Document = {}
+Document.__index = Document
 
-function DataStore.new(Key: string, Template: { [string]: any })
-	local self = setmetatable({}, DataStore)
+function Document.new(Collection: Collection, Key: string)
+	local self = setmetatable({}, Document)
 
 	self.Key = Key
-	self.Template = Template
 
-	self.AutosaveStart = Signal.new() :: Signal.Signal
-	self.AutosaveEnd = Signal.new() :: Signal.Signal
+	-- For some reason I have to specify these types
+	self.Template = Collection.Template
+	self.DataStore = Collection.DataStore
 
-	self.Data = nil :: { [string]: any }?
-	self.UserIds = {} :: { number }
+	self._Loading = false
+	self._Saving = nil :: Promise.Promise?
 
-	self.Loaded = false
 	self.DoSave = false
 
-	self.Loading = nil :: Promise.Promise?
-	self.Saving = nil :: Promise.Promise?
-
-	self.AutosaveThread = nil :: thread?
-	
-	self:Load()
+	self.Data = {} :: { [string]: any }
+	self.UserIds = {} :: { number }
 
 	return self
 end
 
-function DataStore:Load()
-	if self.Loading ~= nil or self.Data ~= nil then
-		return
-	end
+function Document.Load(self: Document)
+	assert(self._Loading, "Document is already loading or loaded.")
+	self._Loading = true
 
-	self.Loading = Promise.Retry(function(Resolve)
-		local OutData, UserIds
+	return Promise.Retry(function(Resolve)
+		local ReturnData, UserIds
 
-		Store:UpdateAsync(self.Key, function(Data, KeyInfo: DataStoreKeyInfo)
-			if Data == nil then
-				Data = {
+		self.DataStore:UpdateAsync(self.Key, function(Value, KeyInfo: DataStoreKeyInfo)
+			if Value == nil then
+				Value = {
 					Data = {},
-					Session = nil,
+					Lock = nil :: { Owner: number, Time: number }?,
 				}
 			end
 
-			Data.Session = {
+			Value.Lock = {
 				Owner = game.JobId,
-				LastLocked = os.time(),
+				Time = os.time(),
 			}
 
-			OutData = Data.Data
+			ReturnData = Value.Data
 			UserIds = KeyInfo:GetUserIds()
 
-			return Data, KeyInfo:GetUserIds()
+			return Value, KeyInfo:GetUserIds()
 		end)
 
-		Resolve(OutData, UserIds)
-	end, MAX_RETRIES):Then(function(Data: { [string]: any }, UserIds: { number })
-		self.Data = Data
+		Resolve(ReturnData, UserIds)
+	end, MAX_RETRIES):Then(function(ReturnData, UserIds)
+		self.Data = ReturnData
 		self.UserIds = UserIds
 
+		for i, v in self.Template do
+			if self.Data[i] == nil then
+				self.Data[i] = v
+			end
+		end
+
 		self.DoSave = true
-	end, function()
+
+		return true
+	end, function(Error)
 		self.Data = table.clone(self.Template)
-		self.UserIds = {}
-	end):Finally(function()
-		self.Loading = nil
-		self.Loaded = true
+
+		return false, Error
 	end)
 end
 
-function DataStore:Save(RemoveLock: boolean?)
-	if self.Saving ~= nil or not self.DoSave then
-		return self.Saving or Promise.Resolve()
+function Document.Save(self: Document, Options: { Force: boolean?, RemoveLock: boolean? }?): Promise.Promise
+	if not self.DoSave then
+		return Promise.Resolve()
 	end
 
-	self.Saving = Promise.Retry(function(Resolve)
-		Store:UpdateAsync(self.Key, function(Data)
-			if Data == nil then
-				Data = {
+	if self._Saving then
+		return self._Saving
+	end
+
+	local Opts: { Force: boolean?, RemoveLock: boolean? } = Options or {}
+
+	self._Saving = Promise.Retry(function(Resolve, Reject)
+		self.DataStore:UpdateAsync(self.Key, function(Value)
+			if Value == nil then
+				Value = {
 					Data = {},
-					Session = nil,
+					Lock = nil :: { Owner: number, Time: number }?,
 				}
 			end
 
-			if Data.Session == nil then
-				if not RemoveLock then
-					Data.Session = {
+			if Value.Lock == nil then
+				if not Opts.RemoveLock then
+					Value.Lock = {
 						Owner = game.JobId,
-						LastLocked = os.time(),
+						Time = os.time(),
 					}
 				end
-
-				Data.Data = self.Data
-			elseif Data.Session.Owner == game.JobId then
-				Data.Data = self.Data
-
-				if RemoveLock then
-					Data.Session = nil
-				else
-					Data.Session.LastLocked = os.time()
-				end
-			elseif os.time() - Data.Session.LastLocked > LOCK_TIMEOUT then
-				if not RemoveLock then
-					Data.Session = {
-						Owner = game.JobId,
-						LastLocked = os.time(),
-					}
-				end
-
-				Data.Data = self.Data
+			elseif Value.Lock.Owner ~= game.JobId and (os.time() - Value.Lock.Time > LOCK_TIMEOUT or Opts.Force) then
+				Value.Lock = {
+					Owner = game.JobId,
+					Time = os.time(),
+				}
 			end
 
-			return Data, self.UserIds
+			return Value, self.UserIds
 		end)
 	end, MAX_RETRIES):Finally(function()
-		self.Saving = nil :: any
+		self._Saving = nil :: any
 	end)
 
-	return self.Saving
+	return self._Saving
 end
 
-function DataStore:StartAutosave()
-	self.AutosaveThread = task.spawn(function()
-		while self.DoSave do
-			task.wait(SAVE_DELAY)
-			self.AutosaveStart:Fire()
+local Collection = {}
+Collection.__index = Collection
 
-			self:Save():Finally(function()
-				self.AutosaveEnd:Fire()
-			end)
-		end
-	end)
+function Collection.new(Name: string, Template: { [string]: any })
+	local self = setmetatable({}, Collection)
+
+	self.Name = Name
+	self.Template = Template
+
+	self.DataStore = DataStoreService:GetDataStore(Name) :: DataStore
+	self.Documents = {} :: { [string]: Document }
+
+	return self
 end
 
-function DataStore:StopAutosave()
-	self.AutosaveThread = self.AutosaveThread :: thread?
+export type Collection = typeof(Collection.new("Name", {}))
+export type Document = typeof(Document.new(Collection.new("Name", {}), "Key"))
 
-	if self.AutosaveThread ~= nil then
-		task.cancel(self.AutosaveThread)
-		self.AutosaveThread = nil
-	end
-end
+local c = Collection.new("Test", {
+	Hello = "World",
+})
 
-function DataStore:Release()
-	self:StopAutosave()
-	self:Save(true)
-end
-
-return DataStore
+local d: Document = Document.new(c, "Key")

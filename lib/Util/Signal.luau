@@ -4,66 +4,62 @@ local Spawn = require(script.Parent.Spawn)
 local Connection = {}
 Connection.__index = Connection
 
-function Connection.new(Signal: { _Root: Connection? }, Callback: (...any) -> ()): Connection
-	local self = setmetatable({}, Connection)
-
-	self._Signal = Signal
-	self._Callback = Callback
-	self._Next = nil :: Connection?
-
-	return self
+function Connection.new(Signal: Signal, Callback: (...any) -> ())
+	return setmetatable({
+		Signal = Signal,
+		Callback = Callback,
+		Next = nil :: Connection?,
+	}, Connection)
 end
 
-function Connection:Disconnect()
-	if self._Signal._Root == self then
-		self._Signal._Root = self._Next
+function Connection.Disconnect(self: Connection)
+	if self.Signal._Root == self then
+		self.Signal._Root = self.Next
 	else
-		local Current = self._Signal._Root
+		local Current = self.Signal._Root
 
 		while Current do
-			if Current._Next == self then
-				Current._Next = self._Next
+			if Current.Next == self then
+				Current.Next = self.Next
 				break
 			end
 
-			Current = Current._Next
+			Current = Current.Next
 		end
 	end
 end
 
-export type Connection = typeof(Connection.new({ _Root = nil :: Connection? }, function() end))
+export type Connection = typeof(Connection.new(table.unpack(...)))
 
 local Signal = {}
 Signal.__index = Signal
 
 function Signal.new()
-	local self = setmetatable({}, Signal)
-
-	self._Root = nil :: Connection?
-
-	return self
+	return setmetatable({
+		_Root = nil :: Connection?,
+	}, Signal)
 end
 
-function Signal:Connect(Callback): Connection
+function Signal.Connect(self: Signal, Callback: (...any) -> ())
 	local Connection = Connection.new(self, Callback)
 
-	Connection._Next = self._Root
+	Connection.Next = self._Root
 	self._Root = Connection
 
 	return Connection
 end
 
-function Signal:Fire(...)
+function Signal.Fire(self: Signal, ...)
 	local Current = self._Root
 
 	while Current do
-		Spawn(Current._Callback, ...)
+		Spawn(Current.Callback, ...)
 
-		Current = Current._Next
+		Current = Current.Next
 	end
 end
 
-function Signal:Wait(): Promise.Promise
+function Signal.Wait(self: Signal)
 	return Promise.new(function(Resolve)
 		local Connection
 		Connection = self:Connect(function(...)

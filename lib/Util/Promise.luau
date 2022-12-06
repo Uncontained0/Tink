@@ -15,11 +15,11 @@ function Promise.new(Callback: (Resolve: (...any) -> (), Reject: (Error: string)
 	self.Thread = nil :: thread?
 	self.Thread = coroutine.create(function()
 		xpcall(Callback, function(Error)
-			self:_Reject(Error)
+			(self :: any):_Reject(Error)
 		end, function(...)
-			self:_Resolve(...)
+			(self :: any):_Resolve(...)
 		end, function(Error: string)
-			self:_Reject(Error)
+			(self :: any):_Reject(Error)
 		end)
 	end)
 
@@ -28,7 +28,7 @@ function Promise.new(Callback: (Resolve: (...any) -> (), Reject: (Error: string)
 	return self
 end
 
-function Promise.Resolve(...)
+function Promise.Resolve(...): Promise
 	local self = setmetatable({}, Promise)
 
 	self.Status = "Resolved"
@@ -40,7 +40,7 @@ function Promise.Resolve(...)
 	return self
 end
 
-function Promise.Reject(...)
+function Promise.Reject(...): Promise
 	local self = setmetatable({}, Promise)
 
 	self.Status = "Rejected"
@@ -56,7 +56,7 @@ function Promise.Retry(
 	Callback: (Resolve: (...any) -> (), Reject: (Error: string) -> ()) -> (),
 	MaxRetries: number,
 	Delay: number?
-)
+): Promise
 	return Promise.new(function(Resolve, Reject)
 		local Retries = 0
 

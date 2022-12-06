@@ -13,10 +13,10 @@ function Connection.new(Signal: Signal, Callback: (...any) -> ())
 end
 
 function Connection.Disconnect(self: Connection)
-	if self.Signal._Root == self then
-		self.Signal._Root = self.Next
+	if self.Signal.Root == self then
+		self.Signal.Root = self.Next
 	else
-		local Current = self.Signal._Root
+		local Current = self.Signal.Root
 
 		while Current do
 			if Current.Next == self then
@@ -36,21 +36,21 @@ Signal.__index = Signal
 
 function Signal.new()
 	return setmetatable({
-		_Root = nil :: Connection?,
+		Root = nil :: Connection?,
 	}, Signal)
 end
 
 function Signal.Connect(self: Signal, Callback: (...any) -> ())
 	local Connection = Connection.new(self, Callback)
 
-	Connection.Next = self._Root
-	self._Root = Connection
+	Connection.Next = self.Root
+	self.Root = Connection
 
 	return Connection
 end
 
 function Signal.Fire(self: Signal, ...)
-	local Current = self._Root
+	local Current = self.Root
 
 	while Current do
 		Spawn(Current.Callback, ...)

@@ -1,13 +1,19 @@
 local RunService = game:GetService("RunService")
 
 local Signal = require(script.Signal)
+local Emitter = require(script.Emitter)
+local Collection = require(script.Collection)
 local Promise = require(script.Promise)
 
 export type Signal = Signal.Signal
+export type Emitter = Emitter.Emitter
+export type Collection = Collection.Collection
 export type Promise = Promise.Promise
 
 return {
 	Signal = Signal,
+	Emitter = Emitter,
+	Collection = Collection,
 	Promise = Promise,
 
 	Make = require(script.Make),

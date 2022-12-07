@@ -9,6 +9,7 @@ local Serdes = {
 	IdToName = {},
 
 	Next = 0,
+	NextOneTime = 0,
 }
 
 function Serdes.RegisterIdentifier(Name: string)
@@ -69,6 +70,12 @@ end
 
 function Serdes.Name(Identifier: string)
 	return Serdes.IdToName[Identifier]
+end
+
+function Serdes.OneTimeId()
+	Serdes.NextOneTime += 1
+
+	return string.pack("H", Serdes.NextOneTime)
 end
 
 return Serdes

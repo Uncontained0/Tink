@@ -66,6 +66,8 @@ function Emitter.Fire(self: Emitter, Event: string, ...)
 	end
 end
 
+Emitter.Emit = Emitter.Fire
+
 function Emitter.Wait(self: Emitter, Event: string)
 	return Promise.new(function(Resolve)
 		local Connection

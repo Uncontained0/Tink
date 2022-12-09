@@ -6,7 +6,9 @@ local Collection = require(script.Collection)
 local Promise = require(script.Promise)
 
 export type Signal = Signal.Signal
+export type SignalConnection = Signal.Connection
 export type Emitter = Emitter.Emitter
+export type EmitterConnection = Emitter.Connection
 export type Collection = Collection.Collection
 export type Promise = Promise.Promise
 

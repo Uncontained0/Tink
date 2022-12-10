@@ -22,7 +22,7 @@ function Server.Server(Name: string)
 				rawset(t, i, v)
 			end,
 		}) :: any
-	) :: { [string]: (Player: Player, ...unknown) -> any }
+	) :: { [string]: (self: typeof(self), Player: Player, ...unknown) -> any }
 
 	Net.Event.On(self.Name, function(Player, EventId, ...)
 		if type(EventId) ~= "string" then
@@ -36,7 +36,7 @@ function Server.Server(Name: string)
 		end
 
 		if self.Client[Event] then
-			self.Client[Event](Player :: Player, ...)
+			self.Client[Event](self, Player :: Player, ...)
 		end
 
 		Util.Emitter.Emit(self :: any, Event, Player, ...)
@@ -54,7 +54,7 @@ function Server.Server(Name: string)
 		end
 
 		if self.Client[Event] then
-			return self.Client[Event](Player :: Player, ...)
+			return self.Client[Event](self, Player :: Player, ...)
 		else
 			return error("No function registered for event " .. Event)
 		end

@@ -11,12 +11,11 @@ local LOCK_TIMEOUT = 900
 local Document = {}
 Document.__index = Document
 
-function Document.new(Collection: Collection, Key: string)
+function Document.Document(Collection: Collection, Key: string)
 	local self = setmetatable({}, Document)
 
 	self.Key = Key
 
-	-- For some reason I have to specify these types
 	self.Template = Collection.Template
 	self.DataStore = Collection.DataStore
 
@@ -35,6 +34,8 @@ function Document.new(Collection: Collection, Key: string)
 
 	return self
 end
+
+Document.new = Document.Document :: (Collection: Collection, Key: string) -> Document
 
 function Document.Load(self: Document)
 	assert(self._Loading, "Document is already loading or loaded.")
@@ -197,10 +198,12 @@ function Document.StartAutosave(self: Document)
 	end)
 end
 
+export type Document = typeof(Document.Document(...))
+
 local Collection = {}
 Collection.__index = Collection
 
-function Collection.new(Name: string, Template: { [string]: any })
+function Collection.Collection(Name: string, Template: { [string]: any })
 	local self = setmetatable({}, Collection)
 
 	self.Name = Name
@@ -212,9 +215,11 @@ function Collection.new(Name: string, Template: { [string]: any })
 	return self
 end
 
+Collection.new = Collection.Collection :: (Name: string, Template: { [string]: any }) -> Collection
+
 function Collection.Document(self: Collection, Key: string)
 	if not self.Documents[Key] then
-		local Doc = Document.new(self, Key)
+		local Doc = Document.Document(self, Key)
 
 		self.Documents[Key] = Doc:Load():Then(function(Loaded, Error)
 			if not Loaded then
@@ -240,7 +245,6 @@ function Collection.ReleaseAll(self: Collection)
 	end
 end
 
-export type Collection = typeof(Collection.new("Name", {}))
-export type Document = typeof(Document.new(Collection.new("Name", {}), "Key"))
+export type Collection = typeof(Collection.Collection(...))
 
 return Collection

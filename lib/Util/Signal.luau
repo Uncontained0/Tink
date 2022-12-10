@@ -4,13 +4,15 @@ local Spawn = require(script.Parent.Spawn)
 local Connection = {}
 Connection.__index = Connection
 
-function Connection.new(Signal: Signal, Callback: (...any) -> ())
+function Connection.Connection(Signal: Signal, Callback: (...any) -> ())
 	return setmetatable({
 		Signal = Signal,
 		Callback = Callback,
 		Next = nil :: Connection?,
 	}, Connection)
 end
+
+Connection.new = Connection.Connection :: (Signal: Signal, Callback: (...any) -> ()) -> Connection
 
 function Connection.Disconnect(self: Connection)
 	if self.Signal.Root == self then
@@ -29,16 +31,18 @@ function Connection.Disconnect(self: Connection)
 	end
 end
 
-export type Connection = typeof(Connection.new(table.unpack(...)))
+export type Connection = typeof(Connection.Connection(...))
 
 local Signal = {}
 Signal.__index = Signal
 
-function Signal.new()
+function Signal.Signal()
 	return setmetatable({
 		Root = nil :: Connection?,
 	}, Signal)
 end
+
+Signal.new = Signal.Signal :: () -> Signal
 
 function Signal.Connect(self: Signal, Callback: (...any) -> ())
 	local Connection = Connection.new(self, Callback)
@@ -69,6 +73,6 @@ function Signal.Wait(self: Signal)
 	end)
 end
 
-export type Signal = typeof(Signal.new())
+export type Signal = typeof(Signal.Signal())
 
 return Signal

@@ -123,6 +123,8 @@ function Event.Send(Player: NetworkTarget, EventName: string, Type: string, ...:
 		Event.OutboundQueue[Player] = {}
 	end
 
+	EventName = Serdes.Identifier(EventName):Await()
+
 	if Event.OutboundQueue[Player][EventName] == nil then
 		Event.OutboundQueue[Player][EventName] = {}
 	end
@@ -146,7 +148,7 @@ function Event.FireTo(Player: NetworkTarget, EventName: string, ...)
 	Event.Send(Player, EventName, Event.EventId, ...)
 end
 
-function Event.Call(Player: NetworkTarget, EventName: string, ...)
+function Event.Invoke(Player: NetworkTarget, EventName: string, ...)
 	local Args = { ... }
 
 	return Util.Promise.new(function(Resolve, Reject)

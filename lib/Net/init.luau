@@ -2,10 +2,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Util = require(script.Parent.Util)
 
-Util.Make("RemoteEvent", {
-	Name = "TinkNet",
-	Parent = ReplicatedStorage,
-})
+if Util.IsServer then
+	Util.Make("RemoteEvent", {
+		Name = "TinkNet",
+		Parent = ReplicatedStorage,
+	})
+end
 
 local Serdes = require(script.Serdes)
 Serdes.Listen()

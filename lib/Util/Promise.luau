@@ -3,7 +3,7 @@ local Spawn = require(script.Parent.Spawn)
 local Promise = {}
 Promise.__index = Promise
 
-function Promise.new(Callback: (Resolve: (...any) -> (), Reject: (Error: string) -> ()) -> ())
+function Promise.Promise(Callback: (Resolve: (...any) -> (), Reject: (Error: string) -> ()) -> ())
 	local self = setmetatable({}, Promise)
 
 	self.Status = "Pending"
@@ -27,6 +27,8 @@ function Promise.new(Callback: (Resolve: (...any) -> (), Reject: (Error: string)
 
 	return self
 end
+
+Promise.new = Promise.Promise :: (Callback: (Resolve: (...any) -> (), Reject: (Error: string) -> ()) -> ()) -> Promise
 
 function Promise.Resolve(...): Promise
 	local self = setmetatable({}, Promise)
@@ -57,7 +59,7 @@ function Promise.Retry(
 	MaxRetries: number,
 	Delay: number?
 ): Promise
-	return Promise.new(function(Resolve, Reject)
+	return Promise.Promise(function(Resolve, Reject)
 		local Retries = 0
 
 		while true do
@@ -116,7 +118,7 @@ function Promise.Then(self: Promise, ResolveCallback: (...any) -> ()?, RejectCal
 			if RejectCallback then RejectCallback(unpack(self.Value :: { any })) else unpack(self.Value :: { any })
 		)
 	else
-		return Promise.new(function(Resolve, Reject)
+		return Promise.Promise(function(Resolve, Reject)
 			table.insert(self.ResolveCallbacks, function(...)
 				if ResolveCallback then
 					Resolve(ResolveCallback(...))
@@ -171,6 +173,6 @@ function Promise.Await(self: Promise): (...any)
 	end
 end
 
-export type Promise = typeof(Promise.new(table.unpack(...)))
+export type Promise = typeof(Promise.Promise(...))
 
 return Promise

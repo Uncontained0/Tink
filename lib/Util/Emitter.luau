@@ -4,7 +4,7 @@ local Promise = require(script.Parent.Promise)
 local Connection = {}
 Connection.__index = Connection
 
-function Connection.new(Emitter: Emitter, Event: string, Callback: (any) -> any)
+function Connection.Connection(Emitter: Emitter, Event: string, Callback: (any) -> any)
 	local self = setmetatable({}, Connection)
 
 	self.Emitter = Emitter
@@ -14,6 +14,8 @@ function Connection.new(Emitter: Emitter, Event: string, Callback: (any) -> any)
 
 	return self
 end
+
+Connection.new = Connection.Connection
 
 function Connection.Disconnect(self: Connection)
 	if self.Emitter.Root[self.Event] == self then
@@ -32,12 +34,12 @@ function Connection.Disconnect(self: Connection)
 	end
 end
 
-export type Connection = typeof(Connection.new(table.unpack(...)))
+export type Connection = typeof(Connection.Connection(...))
 
 local Emitter = {}
 Emitter.__index = Emitter
 
-function Emitter.new()
+function Emitter.Emitter()
 	local self = setmetatable({}, Emitter)
 
 	self.Root = {}
@@ -45,8 +47,10 @@ function Emitter.new()
 	return self
 end
 
+Emitter.new = Emitter.Emitter :: () -> Emitter
+
 function Emitter.Connect(self: Emitter, Event: string, Callback: (...any) -> ())
-	local Connection = Connection.new(self, Event, Callback)
+	local Connection = Connection.Connection(self, Event, Callback)
 
 	Connection.Next = self.Root[Event]
 	self.Root[Event] = Connection
@@ -78,6 +82,6 @@ function Emitter.Wait(self: Emitter, Event: string)
 	end)
 end
 
-export type Emitter = typeof(Emitter.new())
+export type Emitter = typeof(Emitter.Emitter(...))
 
 return Emitter

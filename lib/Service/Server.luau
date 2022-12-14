@@ -14,7 +14,7 @@ function Server.Server(Name: string)
 	self.Name = Name
 	self.Server = self
 
-	self._Client = {} :: { [string]: (self: Server, Player: Player, ...unknown) -> (...any) }
+	self.Client = {} :: { [string]: (self: Server, Player: Player, ...unknown) -> (...any) }
 
 	Net.Event.On(self.Name, function(Player, EventId, ...)
 		if type(EventId) ~= "string" then
@@ -27,8 +27,8 @@ function Server.Server(Name: string)
 			return
 		end
 
-		if self._Client[Event] then
-			self._Client[Event](self, Player :: Player, ...)
+		if self.Client[Event] then
+			self.Client[Event](self, Player :: Player, ...)
 		end
 
 		Util.Emitter.Emit(self :: any, Event, Player, ...)
@@ -45,8 +45,8 @@ function Server.Server(Name: string)
 			return
 		end
 
-		if self._Client[Event] then
-			return self._Client[Event](self, Player :: Player, ...)
+		if self.Client[Event] then
+			return self.Client[Event](self, Player :: Player, ...)
 		else
 			return error("No function registered for event " .. Event)
 		end
@@ -56,11 +56,6 @@ function Server.Server(Name: string)
 end
 
 Server.new = Server.Server :: (Name: string) -> Server
-
-function Server.Client(self: Server, Event: string, Callback: (self: Server, Player: Player, ...unknown) -> (...any))
-	(self :: any)._Client[Event] = Callback
-	Net.Serdes.Identifier(Event)
-end
 
 function Server.FireTo(self: Server, Player: Player, Event: string, ...)
 	Net.Event.FireTo(Player, self.Name, Net.Serdes.Identifier(Event):Await(), ...)

@@ -108,7 +108,7 @@ function Event.EmptyQueue()
 	table.clear(Event.IncomingQueue)
 
 	for Player, Packets in Event.OutboundQueue do
-		if typeof(Player) == "Player" then
+		if typeof(Player) == "Instance" then
 			Event.Instance:FireClient(Player, Packets)
 		else
 			Event.Instance:FireServer(Packets)

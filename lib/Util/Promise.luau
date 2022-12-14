@@ -39,7 +39,7 @@ function Promise.Resolve(...): Promise
 	self.Value = { ... } :: { any }?
 	self.Thread = nil :: thread?
 
-	return self
+	return self :: Promise
 end
 
 function Promise.Reject(...): Promise
@@ -51,7 +51,7 @@ function Promise.Reject(...): Promise
 	self.Value = { ... } :: { any }?
 	self.Thread = nil :: thread?
 
-	return self
+	return self :: Promise
 end
 
 function Promise.Retry(
@@ -173,6 +173,6 @@ function Promise.Await(self: Promise): (...any)
 	end
 end
 
-export type Promise = typeof(Promise.Promise(...))
+export type Promise = typeof(Promise.Promise(table.unpack(...)))
 
 return Promise

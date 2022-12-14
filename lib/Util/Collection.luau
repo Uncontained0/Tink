@@ -198,7 +198,7 @@ function Document.StartAutosave(self: Document)
 	end)
 end
 
-export type Document = typeof(Document.Document(...))
+export type Document = typeof(Document.Document(table.unpack(...)))
 
 local Collection = {}
 Collection.__index = Collection
@@ -245,6 +245,6 @@ function Collection.ReleaseAll(self: Collection)
 	end
 end
 
-export type Collection = typeof(Collection.Collection(...))
+export type Collection = typeof(Collection.Collection(table.unpack(...)))
 
 return Collection

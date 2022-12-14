@@ -31,7 +31,7 @@ function Connection.Disconnect(self: Connection)
 	end
 end
 
-export type Connection = typeof(Connection.Connection(...))
+export type Connection = typeof(Connection.Connection(table.unpack(...)))
 
 local Signal = {}
 Signal.__index = Signal
@@ -73,6 +73,6 @@ function Signal.Wait(self: Signal)
 	end)
 end
 
-export type Signal = typeof(Signal.Signal())
+export type Signal = typeof(Signal.Signal(table.unpack(...)))
 
 return Signal

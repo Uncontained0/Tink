@@ -47,6 +47,6 @@ function Binding.Bind(Binding: Binding, Tag: string)
 	end
 end
 
-export type Binding = typeof(Binding.Binding(...))
+export type Binding = typeof(Binding.Binding(table.unpack(...)))
 
 return Binding

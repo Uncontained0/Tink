@@ -34,7 +34,7 @@ function Connection.Disconnect(self: Connection)
 	end
 end
 
-export type Connection = typeof(Connection.Connection(...))
+export type Connection = typeof(Connection.Connection(table.unpack(...)))
 
 local Emitter = {}
 Emitter.__index = Emitter
@@ -76,12 +76,12 @@ function Emitter.Wait(self: Emitter, Event: string)
 	return Promise.new(function(Resolve)
 		local Connection
 		Connection = self:Connect(Event, function(...)
-			Connection.Disconnect()
+			Connection:Disconnect()
 			Resolve(...)
 		end)
 	end)
 end
 
-export type Emitter = typeof(Emitter.Emitter(...))
+export type Emitter = typeof(Emitter.Emitter(table.unpack(...)))
 
 return Emitter

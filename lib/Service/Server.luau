@@ -75,6 +75,6 @@ function Server.FireExcept(self: Server, Player: Player, Event: string, ...)
 	end
 end
 
-export type Server = typeof(Server.Server(table.unpack(...)))
+export type Server = typeof(Server.Server(table.unpack(...))) & { [any]: any }
 
 return Server

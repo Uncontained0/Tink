@@ -10,6 +10,7 @@ export type Signal = Util.Signal
 export type Emitter = Util.Emitter
 export type Binding = Util.Binding
 export type Collection = Util.Collection
+export type Document = Util.Collection
 
 return {
 	Util = Util,

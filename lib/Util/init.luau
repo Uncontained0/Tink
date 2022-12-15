@@ -9,6 +9,7 @@ local Binding = require(script.Binding)
 export type Signal = Signal.Signal
 export type Emitter = Emitter.Emitter
 export type Collection = Collection.Collection
+export type Document = Collection.Document
 export type Promise = Promise.Promise
 export type Binding = Binding.Binding
 

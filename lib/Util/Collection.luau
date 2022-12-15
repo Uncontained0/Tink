@@ -32,6 +32,8 @@ function Document.Document(Collection: Collection, Key: string)
 	self.AutosaveStart = Signal.new()
 	self.AutosaveEnd = Signal.new()
 
+	self.OnRelease = Signal.new()
+
 	return self
 end
 
@@ -157,6 +159,8 @@ function Document.Release(self: Document, Force: boolean?)
 			self._Saving:Await()
 		end
 
+		self.OnRelease:Fire()
+
 		self:Save(Force, true :: boolean?):Then(function()
 			self.Released = true
 			Resolve()
@@ -236,6 +240,10 @@ function Collection.Document(self: Collection, Key: string)
 				Doc:StartAutosave()
 			end
 
+			Doc.OnRelease:Connect(function()
+				self.Documents[Key] = nil
+			end)
+
 			return Doc
 		end)
 	end
@@ -251,6 +259,14 @@ function Collection.ReleaseAll(self: Collection)
 			Doc:Release()
 		end)
 	end
+end
+
+function Collection.Has(self: Collection, Key: string)
+	return self.Documents[Key] ~= nil
+end
+
+function Collection.Get(self: Collection, Key: string)
+	return self.Documents[Key]
 end
 
 export type Collection = typeof(Collection.Collection(table.unpack(...)))

@@ -37,14 +37,6 @@ end
 
 Document.new = Document.Document :: (Collection: Collection, Key: string) -> Document
 
-function Document.Reconcile(self: Document)
-	for i, v in self.Template do
-		if self.Data[i] == nil then
-			self.Data[i] = v
-		end
-	end
-end
-
 function Document.Load(self: Document)
 	assert(self._Loading, "Document is already loading or loaded.")
 	self._Loading = true
@@ -76,7 +68,11 @@ function Document.Load(self: Document)
 		self.Data = ReturnData
 		self.UserIds = UserIds
 
-		self:Reconcile()
+		for i, v in self.Template do
+			if self.Data[i] == nil then
+				self.Data[i] = v
+			end
+		end
 
 		self.DoSave = true
 
@@ -211,28 +207,18 @@ local Collections = {} :: { [string]: Collection }
 
 function Collection.Collection(Name: string, Template: { [string]: any })
 	if Collections[Name] then
-		local self = Collections[Name]
-
-		for i, v in Template do
-			if self.Template[i] == nil then
-				self.Template[i] = v
-			end
-		end
-
-		for i, v in self.Documents do
-			v:Reconcile()
-		end
-
-		return self :: Collection
+		return Collections[Name] :: Collection
 	end
 
 	local self = setmetatable({}, Collection)
 
 	self.Name = Name
-	self.Template = Template :: { [string]: any }
+	self.Template = Template
 
 	self.DataStore = DataStoreService:GetDataStore(Name) :: DataStore
 	self.Documents = {} :: { [string]: Promise.Promise }
+
+	Collections[Name] = self
 
 	return self
 end
@@ -267,6 +253,6 @@ function Collection.ReleaseAll(self: Collection)
 	end
 end
 
-export type Collection = typeof(Collection.Collection("", {}))
+export type Collection = typeof(Collection.Collection(table.unpack(...)))
 
 return Collection

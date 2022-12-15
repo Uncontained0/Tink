@@ -4,7 +4,7 @@ local Promise = require(script.Parent.Promise)
 local Signal = require(script.Parent.Signal)
 
 local MAX_RETRIES = 3
-local RETRY_DELAY = 6
+local RETRY_DELAY = 10
 local SAVE_DELAY = 300
 local LOCK_TIMEOUT = 900
 
@@ -37,6 +37,14 @@ end
 
 Document.new = Document.Document :: (Collection: Collection, Key: string) -> Document
 
+function Document.Reconcile(self: Document)
+	for i, v in self.Template do
+		if self.Data[i] == nil then
+			self.Data[i] = v
+		end
+	end
+end
+
 function Document.Load(self: Document)
 	assert(self._Loading, "Document is already loading or loaded.")
 	self._Loading = true
@@ -68,11 +76,7 @@ function Document.Load(self: Document)
 		self.Data = ReturnData
 		self.UserIds = UserIds
 
-		for i, v in self.Template do
-			if self.Data[i] == nil then
-				self.Data[i] = v
-			end
-		end
+		self:Reconcile()
 
 		self.DoSave = true
 
@@ -203,11 +207,29 @@ export type Document = typeof(Document.Document(table.unpack(...)))
 local Collection = {}
 Collection.__index = Collection
 
+local Collections = {} :: { [string]: Collection }
+
 function Collection.Collection(Name: string, Template: { [string]: any })
+	if Collections[Name] then
+		local self = Collections[Name]
+
+		for i, v in Template do
+			if self.Template[i] == nil then
+				self.Template[i] = v
+			end
+		end
+
+		for i, v in self.Documents do
+			v:Reconcile()
+		end
+
+		return self :: Collection
+	end
+
 	local self = setmetatable({}, Collection)
 
 	self.Name = Name
-	self.Template = Template
+	self.Template = Template :: { [string]: any }
 
 	self.DataStore = DataStoreService:GetDataStore(Name) :: DataStore
 	self.Documents = {} :: { [string]: Promise.Promise }
@@ -245,6 +267,6 @@ function Collection.ReleaseAll(self: Collection)
 	end
 end
 
-export type Collection = typeof(Collection.Collection(table.unpack(...)))
+export type Collection = typeof(Collection.Collection("", {}))
 
 return Collection
